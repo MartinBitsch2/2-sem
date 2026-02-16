@@ -35,7 +35,7 @@ own_goals <- cbind(own_goals, SHOTBODYPART=rep(0, nrow(own_goals)), SHOTISGOAL=r
 
 
 ################################################################################
-#PASSES OG ODD_ONS
+#PASSES OG ODD_ONES
 ################################################################################
 
 #primarytypes for 24/25 og 25/26 fra matchevents_passes. Både Superliga og 1. div
@@ -61,4 +61,5 @@ shots_med_xy <- shots_med_xy[,c(1,2,3,10,11,12,4,5,6,7,8,9,13,14)]#rearrangerer 
 
 #DF vi arbejder med
 View(shots_med_xy)
+
 
