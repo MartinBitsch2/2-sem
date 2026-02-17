@@ -35,7 +35,7 @@ own_goals <- cbind(own_goals, SHOTBODYPART=rep(0, nrow(own_goals)), SHOTISGOAL=r
 
 
 ################################################################################
-#PASSES OG ODD_ONES
+#PASSES OG ODD_ONS
 ################################################################################
 
 #primarytypes for 24/25 og 25/26 fra matchevents_passes. Både Superliga og 1. div
@@ -57,9 +57,49 @@ shots_season <- left_join(matches301, shots, by="MATCH_WYID")
 shots_med_xy <- left_join(shots_season, common[, c(2,3,14,16,12,13)] %>% distinct(EVENT_WYID, .keep_all = TRUE),by = "EVENT_WYID")
 shots_med_xy <- shots_med_xy[,c(1,2,3,10,11,12,4,5,6,7,8,9,13,14)]#rearrangerer kolonner 
 
+################################################################################
+#AFSTANDE OG VINKLER
+################################################################################
+
+#sererat df med vinkler og afstande. koordinater før i procent, laves om til meter
+afstand_vinkel <- cbind(shots_med_xy, x_meter=shots_med_xy$LOCATIONX*0.01*105, y_meter=shots_med_xy$LOCATIONY*0.01*68) 
+
+#pytagoras (a^2+b^2=c^2)
+afstand_vinkel$afstand_til_mål <- sqrt(((105-afstand_vinkel$x_meter)^2)+((34-afstand_vinkel$y_meter)^2))
+
+#afstande til venstre og højre målstolpe. skal bruges til udregning af vinkel som bold kan gå ind fra skudposition (uden skru)
+left_post <- c(105, 37.75)
+right_post <- c(105, 30.25)
+afstand_vinkel$afstand_left <- sqrt((left_post[1] - afstand_vinkel$x_meter)^2 + (left_post[2] - afstand_vinkel$y_meter)^2) 
+afstand_vinkel$afstand_right <- sqrt((right_post[1] - afstand_vinkel$x_meter)^2 + (right_post[2] - afstand_vinkel$y_meter)^2) 
+
+a <- afstand_vinkel$afstand_left
+b <- afstand_vinkel$afstand_right
+c <- 7.5 #vi har defineret at der er 7.5 meter mellem midten af hver målstolpe
+
+#cosinusrelation til udregning af vinkel i grader mellem stolperne fra skudposition.
+afstand_vinkel$vinkel_mellem_stolper <- acos((a^2+b^2-c^2)/(2*a*b))*180/pi
+
+#Tilføjer det vigtigste tilbage til hoved-df shots_med_xy
+shots_med_xy <- afstand_vinkel[,c(1:12,15:17,20)]
+
+################################################################################
+#VIBORG OG FCN
+################################################################################
+
+#Viborgs og Nordsjællands skud
+viborg <- shots_med_xy[] %>% filter(TEAM_WYID==7456)
+fcn <- shots_med_xy %>% filter(TEAM_WYID==7458)
 
 
-#DF vi arbejder med
-View(shots_med_xy)
 
+#vinkel
+left_post <- c(105, 37.75) 
+right_post <- c(105, 30.25)
+$afstand_left <- sqrt((left_post[1] - df$LOCATIONX)^2 + (left_post[2] - df$LOCATIONY)^2) 
+
+df$afstand_right <- sqrt((right_post[1] - df$LOCATIONX)^2 + (right_post[2] - df$LOCATIONY)^2)
+
+
+viborg$vinkel <- (105-(viborg$LOCATIONX*0.01)*105)
 
