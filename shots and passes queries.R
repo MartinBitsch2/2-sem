@@ -4,6 +4,11 @@ library(dplyr)
 library(ggplot2)
 library(ggsoccer)
 library(dplyr)
+library(stringr)
+library(rpart)
+library(rpart.plot)
+library(caret)
+library(scales)
 options(digits = 5)
 
 
@@ -97,13 +102,81 @@ viborg <- shots_med_xy %>% filter(TEAM_WYID==7456)
 fcn <- shots_med_xy %>% filter(TEAM_WYID==7458)
 
 ##########################################################################################################################################
-#TORSDAG
+#BESLUTNINGSTRÆ
 ##########################################################################################################################################
+
+#laver ny kolonne hvor der defineres om et skud er blevet til at mål eller ej.
 super <- shots_med_xy %>% filter(COMPETITION_WYID==335)
 super <- super %>% filter(afstand_til_mål<35, PRIMARYTYPE=="shot")
+supermål <- super %>% filter(str_detect(SHOTBODYPART, '"goal"') | SHOTISGOAL == 1)
+supermål <- cbind(supermål, skud=as.factor(rep("mål", nrow(supermål))))
+superikkemål <- anti_join(super, supermål, by="EVENT_WYID")
+superikkemål <- cbind(superikkemål, skud=as.factor(rep("ikke-mål", nrow(superikkemål))))
+super <- rbind(supermål, superikkemål)
+  
+#beslutningstræet
+set.seed(123)
+train_index <- createDataPartition(super$skud, p = 0.8, list = FALSE)
+train_data <- super[train_index, ]
+test_data <- super[-train_index, ]
 
-plot(super$x_meter, super$y_meter)
+tree_model <- rpart(skud ~ vinkel_mellem_stolper + afstand_til_mål, 
+                    data = train_data, 
+                    method = "class",  # For classification
+                    control = rpart.control(minsplit = 10, cp = 0.002))
 
-View(shots_med_xy)
+rpart.plot(tree_model, box.palette = "auto", nn = TRUE)
+
+predictions <- predict(tree_model, test_data, type = "class")
+confusionMatrix(predictions, test_data$skud)
+
+
+##########################################################################################################################################
+#PLOTS
+##########################################################################################################################################
+
+
+#Plot over fordling af mål og ikke mål
+super_plot <- super %>% count(skud, name = "n") %>% mutate(pct = n / sum(n), label = paste0(n, " (", percent(pct, accuracy = 1), ")"))
+
+ggplot(super_plot, aes(x = skud, y = pct, fill = skud)) + geom_col(width = 0.55, show.legend = FALSE) + 
+  geom_text(aes(label = label),vjust = -0.6,fontface = "bold",size = 4.5) +
+  scale_fill_manual(values = c("ikke-mål" = "#D55E00", "mål" = "#009E73")) +
+  scale_y_continuous(labels = percent,expand = expansion(mult = c(0, 0.15))) +
+  labs(title = "12% af skud i frit spil under 35 m fra målet, bliver til mål",
+       subtitle = "Fordeling mellem afslutninger der giver mål og ikke mål",x = NULL,y = "Andel afslutninger") +
+  theme_minimal(base_size = 14) + theme(plot.title = element_text(face = "bold", size = 18),
+    plot.subtitle = element_text(size = 12, color = "grey40"), axis.text.x = element_text(face = "bold"),
+    axis.title.y = element_text(face = "bold"), panel.grid.major.x = element_blank())
+
+
+
+# Plot over gns længde på skud der bliver til mål og ikke mål
+df_mean <- super %>% summarise(mean_dist = mean(afstand_til_mål, na.rm = TRUE), sd_dist = sd(afstand_til_mål, na.rm = TRUE), .by = skud)
+
+ggplot(df_mean, aes(x = skud, y = mean_dist)) + geom_col(fill = "grey30", width = 0.45) + geom_text(
+    aes(label = round(mean_dist, 1)), vjust = -0.4, fontface = "bold", size = 4) +
+  labs(title = "Den gns. distance til mål er lavere ved målscoringer - målt indenfor 35 meter fra målet og i frit spil",
+    subtitle = "Mål vs skud der ikke bliver mål - målt i meter", x = NULL, y = "Afstand til mål (meter)") +
+  theme_minimal(base_size = 14) + theme(panel.grid.major.x = element_blank(), axis.text.x = element_text(face = "bold"))
+
+
+
+# Tester p-værdi, gennemsnit og standardafvigelsen
+
+sd(super %>% filter(skud == "mål") %>% pull(afstand_til_mål))
+sd(super %>% filter(skud == "ikke-mål") %>% pull(afstand_til_mål))
+
+
+
+#Skudvinkler
+df_mean2 <- super %>% summarise(mean_dist2 = mean(vinkel_mellem_stolper, 
+            na.rm = TRUE), sd_dist2= sd(vinkel_mellem_stolper, na.rm = TRUE), .by = skud)
+
+ggplot(df_mean2, aes(x = skud, y = mean_dist2)) + geom_col(fill = "grey30", width = 0.45) +
+  geom_text(aes(label = round(mean_dist2, 1)), vjust = -0.4, fontface = "bold", size = 4) +
+  labs(title = "Den gns. vinkel til mål er højere ved målscoringer - målt indenfor 35 meter fra målet og i frit spil",
+    subtitle = "Mål vs skud der ikke bliver mål - målt i grader", x = NULL, y = "Vinkel fra afslutter (grader)") +
+  theme_minimal(base_size = 14) + theme(panel.grid.major.x = element_blank(), axis.text.x = element_text(face = "bold"))
 
 
