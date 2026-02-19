@@ -14,6 +14,10 @@ con <- dbConnect(MariaDB(),
                  db="superliga2",
                  user="dalremote",
                  password="OttoRehagel123456789Long2026!")
+
+##########################################################################################################################################
+#QUERIES FRA SQL
+##########################################################################################################################################
                  
 common <- dbGetQuery(con, "SELECT * FROM superliga2.wyscout_matchevents_common;")
 
@@ -22,44 +26,45 @@ FROM wyscout_matches
 WHERE competition_wyid IN (335, 328)
   AND date BETWEEN '2024-07-19' AND CURRENT_DATE;")
 
-passes <- dbGetQuery(con, "select MATCH_WYID, primarytype, accurate from wyscout_matchevents_passes;")
+passes <- dbGetQuery(con, "select * from wyscout_matchevents_passes;")
 
-shots <- dbGetQuery(con, "select MATCH_WYID, EVENT_WYID, PRIMARYTYPE, SHOTBODYPART, SHOTISGOAL, SHOTONTARGET, SHOTXG, SHOTPOSTSHOTXG from wyscout_matchevents_shots;")
+shots <- dbGetQuery(con, "select MATCH_WYID, EVENT_WYID, PRIMARYTYPE, SHOTBODYPART, SHOTISGOAL, SHOTONTARGET, SHOTXG, SHOTPOSTSHOTXG 
+                    from wyscout_matchevents_shots;")
 
-################################################################################
+##########################################################################################################################################
 #SELVMÅL
-################################################################################
-#27 Own-goals for begge sæsoner
+##########################################################################################################################################
+
+#27 Own-goals for begge sæsoner (kun superliga)
 own_goals <- common %>% filter(grepl("own_goal", PRIMARYTYPE), SEASON_WYID %in% c(189918, 191611))
 own_goals <- cbind(own_goals, SHOTBODYPART=rep(0, nrow(own_goals)), SHOTISGOAL=rep(0, nrow(own_goals)))
 
 
-################################################################################
+##########################################################################################################################################
 #PASSES OG ODD_ONS
-################################################################################
+##########################################################################################################################################
 
 #primarytypes for 24/25 og 25/26 fra matchevents_passes. Både Superliga og 1. div
 passes_season <- left_join(matches301, passes, by="MATCH_WYID")
-table(passes_season$primarytype)
+passes_med_xy <- left_join(passes_season, common[, c(3,14,16,12,13)] %>% distinct(EVENT_WYID, .keep_all = TRUE),by = "EVENT_WYID")
+passes_med_xy <- passes_med_xy[,c(1,2,4,3,13,14,5,6,7,8,9,10,15,16,11,12)]
 
-#primarytypes for 24/25 og 25/26 fra matchevents_common
-season <- common %>% filter(SEASON_WYID %in% c(189918, 191611))
-table(season$PRIMARYTYPE)
-
+#odd ones
+season <- common %>% filter(SEASON_WYID %in% c(189918,189933, 191611, 191620))
 odd_ones <- anti_join(matches301, season, by = "MATCH_WYID")
 
-################################################################################
+##########################################################################################################################################
 #SHOTS
-################################################################################
+##########################################################################################################################################
 
 #shots for 24/25 og 25/26 fra matchevents_shots. Både Superliga og 1. div
 shots_season <- left_join(matches301, shots, by="MATCH_WYID")
 shots_med_xy <- left_join(shots_season, common[, c(2,3,14,16,12,13)] %>% distinct(EVENT_WYID, .keep_all = TRUE),by = "EVENT_WYID")
-shots_med_xy <- shots_med_xy[,c(1,2,3,10,11,12,4,5,6,7,8,9,13,14)]#rearrangerer kolonner 
+shots_med_xy <- shots_med_xy[,c(1,2,3,10,11,12,4,5,6,7,8,9,13,14)] #rearrangerer kolonner 
 
-################################################################################
+##########################################################################################################################################
 #AFSTANDE OG VINKLER
-################################################################################
+##########################################################################################################################################
 
 #sererat df med vinkler og afstande. koordinater før i procent, laves om til meter
 afstand_vinkel <- cbind(shots_med_xy, x_meter=shots_med_xy$LOCATIONX*0.01*105, y_meter=shots_med_xy$LOCATIONY*0.01*68) 
@@ -67,7 +72,7 @@ afstand_vinkel <- cbind(shots_med_xy, x_meter=shots_med_xy$LOCATIONX*0.01*105, y
 #pytagoras (a^2+b^2=c^2)
 afstand_vinkel$afstand_til_mål <- sqrt(((105-afstand_vinkel$x_meter)^2)+((34-afstand_vinkel$y_meter)^2))
 
-#afstande til venstre og højre målstolpe. skal bruges til udregning af vinkel som bold kan gå ind fra skudposition (uden skru)
+#afstande til venstre og højre målstolpe. skal bruges til udregning af vinkel som bold kan gå ind fra skudposition (uden skrue)
 left_post <- c(105, 37.75)
 right_post <- c(105, 30.25)
 afstand_vinkel$afstand_left <- sqrt((left_post[1] - afstand_vinkel$x_meter)^2 + (left_post[2] - afstand_vinkel$y_meter)^2) 
@@ -83,23 +88,22 @@ afstand_vinkel$vinkel_mellem_stolper <- acos((a^2+b^2-c^2)/(2*a*b))*180/pi
 #Tilføjer det vigtigste tilbage til hoved-df shots_med_xy
 shots_med_xy <- afstand_vinkel[,c(1:12,15:17,20)]
 
-################################################################################
+##########################################################################################################################################
 #VIBORG OG FCN
-################################################################################
+##########################################################################################################################################
 
 #Viborgs og Nordsjællands skud
-viborg <- shots_med_xy[] %>% filter(TEAM_WYID==7456)
+viborg <- shots_med_xy %>% filter(TEAM_WYID==7456)
 fcn <- shots_med_xy %>% filter(TEAM_WYID==7458)
 
+##########################################################################################################################################
+#TORSDAG
+##########################################################################################################################################
+super <- shots_med_xy %>% filter(COMPETITION_WYID==335)
+super <- super %>% filter(afstand_til_mål<35, PRIMARYTYPE=="shot")
 
+plot(super$x_meter, super$y_meter)
 
-#vinkel
-left_post <- c(105, 37.75) 
-right_post <- c(105, 30.25)
-$afstand_left <- sqrt((left_post[1] - df$LOCATIONX)^2 + (left_post[2] - df$LOCATIONY)^2) 
+View(shots_med_xy)
 
-df$afstand_right <- sqrt((right_post[1] - df$LOCATIONX)^2 + (right_post[2] - df$LOCATIONY)^2)
-
-
-viborg$vinkel <- (105-(viborg$LOCATIONX*0.01)*105)
 
