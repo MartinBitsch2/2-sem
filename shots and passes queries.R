@@ -9,6 +9,7 @@ library(rpart)
 library(rpart.plot)
 library(caret)
 library(scales)
+library(randomForest)
 options(digits = 5)
 
 
@@ -54,6 +55,17 @@ passes_season <- left_join(matches301, passes, by="MATCH_WYID")
 passes_med_xy <- left_join(passes_season, common[, c(3,14,16,12,13)] %>% distinct(EVENT_WYID, .keep_all = TRUE),by = "EVENT_WYID")
 passes_med_xy <- passes_med_xy[,c(1,2,4,3,13,14,5,6,7,8,9,10,15,16,11,12)]
 
+#Kun succesfulde afleveringer
+teamz <- unique(na.omit(passes_med_xy$TEAM_WYID[passes_med_xy$SEASON_WYID %in% c(191611,189918)]))
+filtered_df <- c()
+for(i in 1:length(teamz)){
+  filtered_df2 <- passes_med_xy %>% filter(TEAM_WYID==teamz[i])
+  filtered_df1 <- filtered_df2 %>% filter(RECIPIENT_WYID %in% unique(filtered_df2$PLAYER_WYID))
+  
+  filtered_df <- rbind(filtered_df, filtered_df1)
+}
+passes_succes_super <- filtered_df %>% filter(SEASON_WYID %in% c(191611,189918), PRIMARYTYPE=="pass")
+
 #odd ones
 season <- common %>% filter(SEASON_WYID %in% c(189918,189933, 191611, 191620))
 odd_ones <- anti_join(matches301, season, by = "MATCH_WYID")
@@ -94,14 +106,6 @@ afstand_vinkel$vinkel_mellem_stolper <- acos((a^2+b^2-c^2)/(2*a*b))*180/pi
 shots_med_xy <- afstand_vinkel[,c(1:12,15:17,20)]
 
 ##########################################################################################################################################
-#VIBORG OG FCN
-##########################################################################################################################################
-
-#Viborgs og Nordsjællands skud
-viborg <- shots_med_xy %>% filter(TEAM_WYID==7456)
-fcn <- shots_med_xy %>% filter(TEAM_WYID==7458)
-
-##########################################################################################################################################
 #BESLUTNINGSTRÆ
 ##########################################################################################################################################
 
@@ -123,12 +127,17 @@ test_data <- super[-train_index, ]
 tree_model <- rpart(skud ~ vinkel_mellem_stolper + afstand_til_mål, 
                     data = train_data, 
                     method = "class",  # For classification
-                    control = rpart.control(minsplit = 10, cp = 0.002))
+                    control = rpart.control(minsplit = 10, cp = 0.0037425)) #cp=complexity parameter. bruges til at prunne.
 
 rpart.plot(tree_model, box.palette = "auto", nn = TRUE)
 
 predictions <- predict(tree_model, test_data, type = "class")
 confusionMatrix(predictions, test_data$skud)
+
+printcp(tree_model)  # Identify optimal cp (xerror is minimized)
+optimal_cp <- tree_model$cptable[which.min(tree_model$cptable[, "xerror"]), "CP"]
+pruned_tree <- prune(tree_model, cp = optimal_cp)
+rpart.plot(pruned_tree)
 
 
 ##########################################################################################################################################
@@ -163,9 +172,13 @@ ggplot(df_mean, aes(x = skud, y = mean_dist)) + geom_col(fill = "grey30", width 
 
 
 # Tester p-værdi, gennemsnit og standardafvigelsen
-
+#afstand
 sd(super %>% filter(skud == "mål") %>% pull(afstand_til_mål))
 sd(super %>% filter(skud == "ikke-mål") %>% pull(afstand_til_mål))
+
+#vinkel:
+sd(super %>% filter(skud == "mål") %>% pull(vinkel_mellem_stolper))
+sd(super %>% filter(skud == "ikke-mål") %>% pull(vinkel_mellem_stolper))
 
 
 
