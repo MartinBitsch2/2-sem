@@ -12,6 +12,9 @@ library(scales)
 library(randomForest)
 options(digits = 5)
 
+#900 hovedstød for begge sæsoner
+
+
 
 #forbindelse
 con <- dbConnect(MariaDB(),
@@ -22,9 +25,15 @@ con <- dbConnect(MariaDB(),
                  password="OttoRehagel123456789Long2026!")
 
 ##########################################################################################################################################
-#QUERIES FRA SQL
+#QUERIES FRA SQL OG RDS
 ##########################################################################################################################################
-                 
+
+common <- readRDS("C://Users//marti//Documents//Git//EK//2. sem//OLA1//filer//common.rds")
+matches301 <- readRDS("C://Users//marti//Documents//Git//EK//2. sem//OLA1//filer//matches301.rds")
+passes <- readRDS("C://Users//marti//Documents//Git//EK//2. sem//OLA1//filer//passes.rds")
+shots <- readRDS("C://Users//marti//Documents//Git//EK//2. sem//OLA1//filer//shots.rds")
+
+
 common <- dbGetQuery(con, "SELECT * FROM superliga2.wyscout_matchevents_common;")
 
 matches301 <- dbGetQuery(con, "SELECT MATCH_WYID, SEASON_WYID
@@ -36,6 +45,7 @@ passes <- dbGetQuery(con, "select * from wyscout_matchevents_passes;")
 
 shots <- dbGetQuery(con, "select MATCH_WYID, EVENT_WYID, PRIMARYTYPE, SHOTBODYPART, SHOTISGOAL, SHOTONTARGET, SHOTXG, SHOTPOSTSHOTXG 
                     from wyscout_matchevents_shots;")
+
 
 ##########################################################################################################################################
 #SELVMÅL
@@ -64,7 +74,7 @@ for(i in 1:length(teamz)){
   
   filtered_df <- rbind(filtered_df, filtered_df1)
 }
-passes_succes_super <- filtered_df %>% filter(SEASON_WYID %in% c(191611,189918), PRIMARYTYPE=="pass")
+passes_succes_super <- filtered_df %>% filter(SEASON_WYID %in% c(191611,189918), PRIMARYTYPE=="pass", PLAYER_WYID != 0, RECIPIENT_WYID != 0)
 
 #odd ones
 season <- common %>% filter(SEASON_WYID %in% c(189918,189933, 191611, 191620))
