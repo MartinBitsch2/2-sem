@@ -50,6 +50,8 @@ players <- dbGetQuery(con, "SELECT * FROM superliga2.wyscout_players;")
 
 secondarytype <- dbGetQuery(con, "SELECT * from superliga2.wyscout_matchevents_secondarytype;")
 
+teams <- dbGetQuery(con, "SELECT DISTINCT TEAM_WYID, TEAMNAME FROM wyscout_teams;")
+
 
 
 
@@ -59,6 +61,7 @@ secondarytype <- dbGetQuery(con, "SELECT * from superliga2.wyscout_matchevents_s
 
 #27 Own-goals for begge sæsoner (kun superliga)
 own_goals <- common %>% filter(grepl("own_goal", PRIMARYTYPE), SEASON_WYID %in% c(189918, 191611))
+own_goals <- common %>% filter(grepl("own_goal", PRIMARYTYPE), SEASON_WYID %in% c(189918, 189933))
 own_goals <- cbind(own_goals, SHOTBODYPART=rep(0, nrow(own_goals)), SHOTISGOAL=rep(0, nrow(own_goals)))
 
 
@@ -81,6 +84,7 @@ for(i in 1:length(teamz)){
 }
 passes_succes_super <- filtered_df %>% filter(SEASON_WYID %in% c(191611,189918), PRIMARYTYPE=="pass", PLAYER_WYID != 0, RECIPIENT_WYID != 0)
 passes_super <- passes_med_xy %>% filter(SEASON_WYID %in% c(191611,189918), PRIMARYTYPE=="pass")
+passes_unsucces_super <- anti_join(passes_super, passes_succes_super, by="EVENT_WYID")
 
 #odd ones
 season <- common %>% filter(SEASON_WYID %in% c(189918,189933, 191611, 191620))
@@ -199,7 +203,7 @@ df_mean2 <- super %>% summarise(mean_dist2 = mean(vinkel_mellem_stolper,
 
 ggplot(df_mean2, aes(x = skud, y = mean_dist2)) + geom_col(fill = "grey30", width = 0.45) +
   geom_text(aes(label = round(mean_dist2, 1)), vjust = -0.4, fontface = "bold", size = 4) +
-  labs(title = "Den gns. vinkel til mål er højere ved målscoringer - målt indenfor 35 meter fra målet og i frit spil",
+  labs(title = "Den gns. vinkel til mål er højere ved målscoringer - \nmålt indenfor 35 meter fra målet og i frit spil",
     subtitle = "Mål vs skud der ikke bliver mål - målt i grader", x = NULL, y = "Vinkel fra afslutter (grader)") +
   theme_minimal(base_size = 14) + theme(panel.grid.major.x = element_blank(), axis.text.x = element_text(face = "bold"))
 
