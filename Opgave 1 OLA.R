@@ -5,13 +5,28 @@ library(dplyr)
 library(ggplot2)
 library(ggsoccer)
 library(scales)
+library(RMariaDB)
 
+#forbindelse
+con <- dbConnect(MariaDB(),
+                 host="talmedos.com",
+                 port="3306",
+                 db="superliga2",
+                 user="dalremote",
+                 password="OttoRehagel123456789Long2026!"
+)
+
+
+players <- dbGetQuery(con,"SELECT * FROM superliga2.wyscout_players;")
+saveRDS(players, file = "players.rds")
 ##########################################################################################################################################
 
 #primarytypes for 24/25 og 25/26 fra matchevents_passes. Både Superliga og 1. div
 passes_season <- left_join(matches301, passes, by="MATCH_WYID")
-passes_med_xy <- left_join(passes_season, common[, c(3,14,16,12,13)] %>% distinct(EVENT_WYID, .keep_all = TRUE),by = "EVENT_WYID")
+passes_med_xy <- left_join(passes_season, common[, c(3,5,6,14,16,12,13)] %>% distinct(EVENT_WYID, .keep_all = TRUE),by = "EVENT_WYID")
 passes_med_xy <- passes_med_xy[,c(1,2,4,3,13,14,5,6,7,8,9,10,15,16,11,12)]
+
+saveRDS(passes_med_xy, file = "passes_med_xy.rds")
 
 #Kun succesfulde afleveringer
 teamz <- unique(na.omit(passes_med_xy$TEAM_WYID[passes_med_xy$SEASON_WYID %in% c(191611,189918)]))
@@ -23,6 +38,7 @@ for(i in 1:length(teamz)){
   filtered_df <- rbind(filtered_df, filtered_df1)
 }
 passes_succes_super <- filtered_df %>% filter(SEASON_WYID %in% c(191611,189918), PRIMARYTYPE=="pass", PLAYER_WYID != 0, RECIPIENT_WYID != 0)
+saveRDS(passes_succes_super, file = "passes_succes_super.rds")
 
 #odd ones
 season <- common %>% filter(SEASON_WYID %in% c(189918,189933, 191611, 191620))
@@ -87,6 +103,11 @@ passes_fcn %>%
 passes_sup <- passes_med_xy %>% 
   filter(COMPETITION_WYID == 335,
          PRIMARYTYPE == "pass")
+
+passes_vff_success <- passes_vff %>% filter(recipient_is_own == TRUE)
+mean(passes_vff_success$LENGTH) 
+passes_fcn_success <- passes_fcn %>% filter(recipient_is_own == TRUE)
+mean(passes_fcn_success$LENGTH)
 
 #### VISUALISERING AF SUCCESFULDE AFLEVERINGER FOR VFF OG FCN SAMMENHOLDT MED LIGAEN
 
@@ -347,8 +368,6 @@ print(plot_9_zones_opponent_half_pct_red(
   "VFF – 9 modtagezoner (modstanderens halvdel)"
 ))
 
-# (Valgfrit) side-by-side via facet:
-# plot_9_zones_opponent_half_pct_red(passes_df, "VFF vs FCN – 9 modtagezoner") + facet_wrap(~team)
 
 # ------------------------------------------------------------
 # 7) Andel "høje" afleveringer blandt succesfulde afleveringer
