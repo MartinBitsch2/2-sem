@@ -7,12 +7,24 @@ library(ggsoccer)
 library(scales)
 library(RMariaDB)
 
+con <- dbConnect(MariaDB(),
+                 host="talmedos.com",
+                 port="3306",
+                 db="superliga2",
+                 user="dalremote",
+                 password="OttoRehagel123456789Long2026!")
+
+##########################################################################################################################################
+#QUERIES FRA SQL OG RDS
+##########################################################################################################################################
+
+assist <- dbGetQuery(con, "SELECT * FROM superliga2.wyscout_matchevents_secondarytype;")
+
 super_clean <- readRDS("super_clean.rds")
 passes_med_xy <- readRDS("passes_med_xy.rds")
 passes_succes_super <- readRDS("passes_succes_super.rds")
 players <- readRDS("players.rds")
 matches301 <- readRDS("matches301.rds")
-assist <- readRDS("assist.rds")
 
 #Kun succesfulde afleveringer
 teamz_sod <- unique(na.omit(passes_med_xy$TEAM_WYID[passes_med_xy$SEASON_WYID %in% c(191611,189918,191620,189933)]))
@@ -572,3 +584,4 @@ library(dplyr)
 # Eksempel: hent markedsværdier for en liga/sæson via Transfermarkt URL / country_name
 # Se dokumentationen for de præcise parametre for jeres liga og år.
 mv <- tm_player_market_values(country_name = "Denmark", start_year = 2024)
+
